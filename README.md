@@ -101,6 +101,40 @@ node tools/update-data.mjs --fund 021313
 
 自动数据源当前使用东方财富/天天基金历史净值接口。周末或节假日不会有当天交易净值，工具会更新到接口里最新已发布的交易日。当前接口最早可查到 `2024-04-19`。
 
+## GitHub Pages 自动更新
+
+仓库里已经包含 GitHub Actions 工作流：
+
+```bash
+.github/workflows/update-fund-data.yml
+```
+
+它会在每天北京时间 `23:37` 自动运行。GitHub Actions 的 cron 使用 UTC，所以配置里写的是 `15:37 UTC`：
+
+```bash
+node tools/update-data.mjs
+```
+
+如果 `data/records.json` 或 `stock-data.js` 有变化，工作流会自动提交并推送。GitHub Pages 如果设置为从 `main` 分支根目录发布，就会随着这次推送自动刷新网页。
+
+首次上传到 GitHub 后，需要检查两处设置：
+
+1. `Settings` -> `Pages`
+   - Source: `Deploy from a branch`
+   - Branch: `main`
+   - Folder: `/(root)`
+
+2. `Settings` -> `Actions` -> `General`
+   - Workflow permissions: `Read and write permissions`
+
+也可以手动触发一次更新：
+
+1. 打开 GitHub 仓库的 `Actions` 页面
+2. 选择 `Update fund data`
+3. 点击 `Run workflow`
+
+说明：GitHub Actions 的定时任务可能会有几分钟延迟。当前数据源通常在交易日北京时间 `16:00` 到 `23:00` 更新当日净值，所以工作流安排在北京时间 `23:37`。
+
 ## 验证
 
 ```bash
