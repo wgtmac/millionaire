@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>景顺长城沪港深精选股票C - 均线图</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --line: #d9e1ec;
+        --text: #1f2937;
+        --muted: #667085;
+        --blue: #2563eb;
+        --blue-soft: #e8f0ff;
+        --orange: #d97706;
+        --green: #16a34a;
+        --red: #dc2626;
+        --shadow: none;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      }
+
+      body {
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 0 16px 24px;
+      }
+
+      .topbar {
+        padding: 18px 0 14px;
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 16px;
+      }
+
+      .title {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .band {
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+      }
+
+      .stat {
+        padding: 14px 16px;
+        background: var(--panel);
+        min-height: 78px;
+      }
+
+      .stat-label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .stat-value {
+        margin-top: 6px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .stat-note {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .section-head h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .section-head p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .range-group {
+        display: inline-flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .chart-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .range-btn {
+        appearance: none;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--text);
+        padding: 7px 12px;
+        border-radius: 8px;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .range-btn[aria-pressed="true"] {
+        border-color: var(--blue);
+        background: var(--blue-soft);
+        color: var(--blue);
+        font-weight: 600;
+      }
+
+      .chart-wrap {
+        position: relative;
+        border: 1px solid var(--line);
+        background: #fff;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 440px;
+      }
+
+      .tooltip {
+        position: absolute;
+        pointer-events: none;
+        min-width: 180px;
+        max-width: 240px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: var(--shadow);
+        color: var(--text);
+        border-radius: 8px;
+        transform: translate3d(0, 0, 0);
+      }
+
+      .tooltip.hidden {
+        display: none;
+      }
+
+      .tooltip-title {
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      .tooltip-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 2px 0;
+      }
+
+      .tooltip-row span:first-child {
+        color: var(--muted);
+      }
+
+      .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-top: 0;
+      }
+
+      .detail-item {
+        padding: 14px 16px;
+        background: var(--panel);
+        min-height: 74px;
+      }
+
+      .detail-label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .detail-value {
+        margin-top: 6px;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .detail-value.up {
+        color: var(--red);
+      }
+
+      .detail-value.down {
+        color: var(--green);
+      }
+
+      .table-section {
+        padding-top: 16px;
+      }
+
+      .table-wrap {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        max-height: 560px;
+        overflow: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: rgba(255, 255, 255, 0.98);
+        border-bottom: 1px solid var(--line);
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      tbody td {
+        border-bottom: 1px solid #edf2f7;
+        padding: 10px 14px;
+        white-space: nowrap;
+      }
+
+      tbody tr {
+        cursor: pointer;
+      }
+
+      tbody tr:hover {
+        background: #f8fbff;
+      }
+
+      tbody tr.selected {
+        background: var(--blue-soft);
+      }
+
+      .num {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .up {
+        color: var(--red);
+      }
+
+      .down {
+        color: var(--green);
+      }
+
+      .flat {
+        color: var(--muted);
+      }
+
+      .footnote {
+        padding: 12px 0 6px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      @media (max-width: 720px) {
+        .title {
+          font-size: 18px;
+        }
+
+        .section-head {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .range-group,
+        .chart-actions {
+          justify-content: flex-start;
+        }
+
+        canvas {
+          height: 360px;
+        }
+
+        .stat-value,
+        .detail-value {
+          font-size: 17px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <h1 class="title">景顺长城沪港深精选股票C</h1>
+        <div class="subtitle">代码 021313 · 均线按交易日滚动计算</div>
+      </header>
+
+      <section class="band">
+        <div id="summary" class="stat-grid"></div>
+      </section>
+
+      <section class="band">
+        <div class="section-head">
+          <div>
+            <h2>净值与均线</h2>
+            <p>悬停查看明细，点击任意点位或表格行可锁定关注日期。</p>
+          </div>
+          <div class="chart-actions">
+            <button id="ma60Toggle" class="range-btn" type="button" aria-pressed="false">60 日均线</button>
+            <div id="rangeGroup" class="range-group" aria-label="显示范围"></div>
+          </div>
+        </div>
+        <div class="chart-wrap" id="chartWrap">
+          <canvas id="chart"></canvas>
+          <div id="tooltip" class="tooltip hidden"></div>
+        </div>
+      </section>
+
+      <section class="band">
+        <div id="detailGrid" class="detail-grid"></div>
+      </section>
+
+      <section class="table-section">
+        <div class="section-head">
+          <div>
+            <h2>历史明细</h2>
+            <p>按日期升序展示原始净值、日涨幅和 30/60 日均线。</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>净值</th>
+                <th>日涨幅</th>
+                <th>30 日均线</th>
+                <th>60 日均线</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="footnote">截图识别整理，极少数位置可能存在 OCR 误差。</div>
+    </div>
+
+    <script src="./chart-helpers.js"></script>
+    <script src="./stock-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
