@@ -1,3 +1,4 @@
+import https from 'node:https';
 import { mergeRecords } from './data-store.mjs';
 
 export const DEFAULT_FUND_CODE = '000979';
@@ -99,11 +100,31 @@ export function parseLegacyEastmoneyResponse(text) {
   };
 }
 
+function ipv4Fetch(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, { ...options, family: 4 }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          status: res.statusCode,
+          text: async () => data,
+        });
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 export async function fetchEastmoneyRecords(options = {}) {
   const fundCode = options.fundCode || DEFAULT_FUND_CODE;
   const pageSize = options.pageSize || 50;
   const maxPages = options.maxPages || 200;
-  const fetchImpl = options.fetchImpl || fetch;
+  const fetchImpl = options.fetchImpl || ipv4Fetch;
   let allRecords = [];
 
   for (let pageIndex = 1; pageIndex <= maxPages; pageIndex += 1) {
