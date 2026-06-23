@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>景顺长城沪港深精选股票C - 均线图</title>
+    <title>景顺长城沪港深精选股票A - 均线图</title>
     <style>
       :root {
         --bg: #f5f7fb;
@@ -58,6 +58,13 @@
         margin-top: 4px;
         color: var(--muted);
         font-size: 13px;
+      }
+
+      .fund-pager {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
       }
 
       .band {
@@ -130,7 +137,8 @@
         flex-wrap: wrap;
       }
 
-      .range-btn {
+      .range-btn,
+      .fund-page-btn {
         appearance: none;
         border: 1px solid var(--line);
         background: #fff;
@@ -141,7 +149,14 @@
         cursor: pointer;
       }
 
-      .range-btn[aria-pressed="true"] {
+      .fund-page-btn {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        text-align: left;
+      }
+
+      .range-btn[aria-pressed="true"],
+      .fund-page-btn[aria-pressed="true"] {
         border-color: var(--blue);
         background: var(--blue-soft);
         color: var(--blue);
@@ -326,8 +341,9 @@
   <body>
     <div class="page">
       <header class="topbar">
-        <h1 class="title">景顺长城沪港深精选股票C</h1>
-        <div class="subtitle">代码 021313 · 均线按交易日滚动计算</div>
+        <h1 id="fundTitle" class="title">景顺长城沪港深精选股票A</h1>
+        <div id="fundSubtitle" class="subtitle">代码 000979 · 均线按交易日滚动计算</div>
+        <nav id="fundPager" class="fund-pager" aria-label="基金分页"></nav>
       </header>
 
       <section class="band">

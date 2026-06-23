@@ -1,6 +1,6 @@
 import { mergeRecords } from './data-store.mjs';
 
-export const DEFAULT_FUND_CODE = '021313';
+export const DEFAULT_FUND_CODE = '000979';
 export const EASTMONEY_HISTORY_ENDPOINT = 'https://api.fund.eastmoney.com/f10/lsjz';
 export const EASTMONEY_LEGACY_HISTORY_ENDPOINT = 'https://fundf10.eastmoney.com/F10DataApi.aspx';
 

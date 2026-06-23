@@ -1,18 +1,36 @@
 (function () {
-  const records = (window.STOCK_RECORDS || []).map((record, index) => ({
-    index,
-    date: record.date,
-    nav: Number(record.nav),
-    change: Number(record.change),
-    ma30: null,
-    ma60: null,
-  }));
+  const defaultFund = {
+    code: '000979',
+    name: '景顺长城沪港深精选股票A',
+    records: window.STOCK_RECORDS || [],
+  };
 
-  const movingAverage = ChartHelpers.computeMovingAverageSeries(records.map((record) => record.nav), [30, 60]);
-  records.forEach((record, index) => {
-    record.ma30 = movingAverage[30][index];
-    record.ma60 = movingAverage[60][index];
-  });
+  const funds = (window.STOCK_FUNDS && window.STOCK_FUNDS.length ? window.STOCK_FUNDS : [defaultFund]).map(
+    (fund) => {
+      const records = (fund.records || []).map((record, index) => ({
+        index,
+        date: record.date,
+        nav: Number(record.nav),
+        change: Number(record.change),
+        ma30: null,
+        ma60: null,
+      }));
+      const movingAverage = ChartHelpers.computeMovingAverageSeries(
+        records.map((record) => record.nav),
+        [30, 60],
+      );
+      records.forEach((record, index) => {
+        record.ma30 = movingAverage[30][index];
+        record.ma60 = movingAverage[60][index];
+      });
+
+      return {
+        code: fund.code || defaultFund.code,
+        name: fund.name || `基金 ${fund.code || defaultFund.code}`,
+        records,
+      };
+    },
+  );
 
   const summaryEl = document.getElementById('summary');
   const detailGridEl = document.getElementById('detailGrid');
@@ -22,6 +40,9 @@
   const chartWrap = document.getElementById('chartWrap');
   const rangeGroup = document.getElementById('rangeGroup');
   const ma60ToggleEl = document.getElementById('ma60Toggle');
+  const titleEl = document.getElementById('fundTitle');
+  const subtitleEl = document.getElementById('fundSubtitle');
+  const fundPagerEl = document.getElementById('fundPager');
 
   const rangeModes = [
     { id: 'all', label: '全部', count: null },
@@ -32,11 +53,20 @@
   ];
 
   const state = {
-    selectedIndex: records.length - 1,
+    activeFundIndex: 0,
+    selectedIndex: 0,
     hoverIndex: null,
     visibleMode: 'all',
     showMa60: false,
   };
+
+  function activeFund() {
+    return funds[state.activeFundIndex] || funds[0] || defaultFund;
+  }
+
+  function currentRecords() {
+    return activeFund().records || [];
+  }
 
   function formatDateLabel(date) {
     return date;
@@ -67,10 +97,12 @@
   }
 
   function latestRecord() {
+    const records = currentRecords();
     return records[records.length - 1];
   }
 
   function minMax() {
+    const records = currentRecords();
     let min = Infinity;
     let max = -Infinity;
     for (const record of records) {
@@ -89,7 +121,11 @@
   }
 
   function visibleRange() {
+    const records = currentRecords();
     const mode = rangeModes.find((item) => item.id === state.visibleMode) || rangeModes[0];
+    if (records.length === 0) {
+      return { start: 0, end: 0 };
+    }
     if (!mode.count || mode.count >= records.length) {
       return { start: 0, end: records.length - 1 };
     }
@@ -97,7 +133,12 @@
   }
 
   function buildSummary() {
+    const records = currentRecords();
     const latest = latestRecord();
+    if (!latest) {
+      summaryEl.innerHTML = '';
+      return;
+    }
     const { min, max } = minMax();
     const latestMa30 = latest.ma30;
     const latestMa60 = latest.ma60;
@@ -123,6 +164,49 @@
         `,
       )
       .join('');
+  }
+
+  function updateHeader() {
+    const fund = activeFund();
+    titleEl.textContent = fund.name;
+    subtitleEl.textContent = `代码 ${fund.code} · 均线按交易日滚动计算`;
+    document.title = `${fund.name} - 均线图`;
+  }
+
+  function buildFundPager() {
+    fundPagerEl.innerHTML = '';
+    if (funds.length <= 1) {
+      fundPagerEl.hidden = true;
+      return;
+    }
+
+    fundPagerEl.hidden = false;
+    funds.forEach((fund, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'fund-page-btn';
+      button.textContent = `${index + 1}. ${fund.name}`;
+      button.title = fund.name;
+      button.setAttribute('aria-pressed', String(index === state.activeFundIndex));
+      button.addEventListener('click', () => {
+        state.activeFundIndex = index;
+        state.selectedIndex = currentRecords().length - 1;
+        state.hoverIndex = null;
+        updateHeader();
+        updateFundPager();
+        buildSummary();
+        buildTable();
+        hideTooltip();
+        render();
+      });
+      fundPagerEl.appendChild(button);
+    });
+  }
+
+  function updateFundPager() {
+    for (const [index, button] of [...fundPagerEl.querySelectorAll('button')].entries()) {
+      button.setAttribute('aria-pressed', String(index === state.activeFundIndex));
+    }
   }
 
   function buildRangeButtons() {
@@ -154,6 +238,11 @@
   }
 
   function buildDetails(record) {
+    if (!record) {
+      detailGridEl.innerHTML = '';
+      return;
+    }
+
     const gap = record.ma30 == null ? null : record.nav - record.ma30;
     const items = [
       { label: '日期', value: record.date },
@@ -185,6 +274,7 @@
   }
 
   function buildTable() {
+    const records = currentRecords();
     tableBodyEl.innerHTML = '';
     const fragment = document.createDocumentFragment();
 
@@ -249,7 +339,9 @@
   }
 
   function renderTooltip(index, x, y) {
+    const records = currentRecords();
     const record = records[index];
+    if (!record) return;
     const gap = record.ma30 == null ? null : record.nav - record.ma30;
     tooltipEl.innerHTML = `
       <div class="tooltip-title">${record.date}</div>
@@ -281,6 +373,7 @@
   }
 
   function renderChart() {
+    const records = currentRecords();
     const ctx = canvas.getContext('2d');
     const wrapRect = chartWrap.getBoundingClientRect();
     const width = Math.max(320, Math.floor(wrapRect.width));
@@ -330,6 +423,15 @@
 
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, width, height);
+
+    if (records.length === 0) {
+      ctx.fillStyle = axis;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('暂无数据', width / 2, height / 2);
+      hideTooltip();
+      return;
+    }
 
     ctx.strokeStyle = grid;
     ctx.lineWidth = 1;
@@ -425,6 +527,7 @@
   }
 
   function renderDetailPanel() {
+    const records = currentRecords();
     const active = state.hoverIndex != null ? state.hoverIndex : state.selectedIndex;
     buildDetails(records[active]);
   }
@@ -436,6 +539,8 @@
   }
 
   function pointFromEvent(event) {
+    const records = currentRecords();
+    if (records.length === 0) return 0;
     const rect = canvas.getBoundingClientRect();
     const { start, end } = visibleRange();
     const modeCount = end - start + 1;
@@ -476,6 +581,9 @@
     renderChart();
   });
 
+  state.selectedIndex = currentRecords().length - 1;
+  updateHeader();
+  buildFundPager();
   buildSummary();
   buildRangeButtons();
   updateMa60Toggle();
