@@ -11,6 +11,7 @@ export const DEFAULT_FUNDS = [
   { code: '000979', name: '景顺长城沪港深精选股票A' },
   { code: '016858', name: '国金量化多因子股票C' },
   { code: '009478', name: '中银上海金ETF联接C' },
+  { code: '001235', name: '景顺长城新兴成长混合' },
 ];
 export const DEFAULT_FUND_CODE = DEFAULT_FUNDS[0].code;
 export const DEFAULT_FUND_CODES = DEFAULT_FUNDS.map((fund) => fund.code);
