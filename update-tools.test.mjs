@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { addRecordToFiles, parseAddRecordArgs } from './tools/add-record.mjs';
-import { readRecords, stringifyFundRecords, stringifyRecords } from './tools/data-store.mjs';
+import { DEFAULT_FUND_CODES, readRecords, stringifyFundRecords, stringifyRecords } from './tools/data-store.mjs';
 import { parseUpdateArgs, sinceDateFromYears, updateDataFromSource } from './tools/update-data.mjs';
 
 async function createTempDataFiles(records) {
@@ -125,7 +125,7 @@ test('parseUpdateArgs reads fund and dry-run flags', () => {
 test('parseUpdateArgs defaults to all displayed funds', () => {
   assert.deepEqual(parseUpdateArgs([]), {
     dryRun: false,
-    fundCodes: ['000979', '016858', '009478'],
+    fundCodes: DEFAULT_FUND_CODES,
   });
 });
 
@@ -225,7 +225,7 @@ test('parseUpdateArgs reads since and backfill-years flags', () => {
   assert.deepEqual(parseUpdateArgs(['--since', '2023-05-16', '--backfill-years', '3']), {
     backfillYears: 3,
     dryRun: false,
-    fundCodes: ['000979', '016858', '009478'],
+    fundCodes: DEFAULT_FUND_CODES,
     since: sinceDateFromYears(3),
   });
 });
