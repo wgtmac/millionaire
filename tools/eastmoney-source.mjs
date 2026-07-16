@@ -39,7 +39,7 @@ export function parseEastmoneyRecords(payload) {
     list.map((item) => ({
       date: item.FSRQ,
       nav: item.DWJZ,
-      change: item.JZZZL,
+      change: item.JZZZL === '' ? 0 : item.JZZZL,
     })),
   );
 }
@@ -122,16 +122,16 @@ function ipv4Fetch(url, options = {}) {
 
 export async function fetchEastmoneyRecords(options = {}) {
   const fundCode = options.fundCode || DEFAULT_FUND_CODE;
-  const pageSize = options.pageSize || 50;
+  const pageSize = options.pageSize || 100;
   const maxPages = options.maxPages || 200;
   const fetchImpl = options.fetchImpl || ipv4Fetch;
   let allRecords = [];
 
   for (let pageIndex = 1; pageIndex <= maxPages; pageIndex += 1) {
-    const url = buildLegacyEastmoneyUrl({ fundCode, pageIndex, pageSize });
+    const url = buildEastmoneyUrl({ fundCode, pageIndex, pageSize });
     const response = await fetchImpl(url, {
       headers: {
-        Accept: 'text/javascript,text/html,*/*',
+        Accept: 'application/json, text/plain, */*',
         Referer: `https://fundf10.eastmoney.com/jjjz_${fundCode}.html`,
         'User-Agent':
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
@@ -142,14 +142,21 @@ export async function fetchEastmoneyRecords(options = {}) {
       throw new Error(`Eastmoney request failed with HTTP ${response.status}`);
     }
 
-    const payload = parseLegacyEastmoneyResponse(await response.text());
-    const pageRecords = payload.records;
+    const payloadText = await response.text();
+    const payload = JSON.parse(payloadText);
+    const pageRecords = parseEastmoneyRecords(payload);
+
     if (pageRecords.length === 0) {
       break;
     }
 
     allRecords = mergeRecords(allRecords, pageRecords);
-    if (pageIndex >= payload.pages) {
+    
+    const totalCount = payload.Data?.TotalCount || 0;
+    const itemsPerPage = payload.Data?.PageSize || pageSize;
+    const totalPages = Math.ceil(totalCount / itemsPerPage) || 1;
+    
+    if (pageIndex >= totalPages) {
       break;
     }
   }
