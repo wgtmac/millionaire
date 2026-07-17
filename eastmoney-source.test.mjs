@@ -77,15 +77,29 @@ test('buildLegacyEastmoneyUrl sets legacy F10 query params', () => {
   assert.equal(url.searchParams.get('per'), '20');
 });
 
-test('fetchEastmoneyRecords uses the complete legacy paginated source', async () => {
+test('fetchEastmoneyRecords uses the paginated JSON source', async () => {
   const calls = [];
   const fetchImpl = async (url) => {
-    calls.push(url.searchParams.get('page'));
-    const page = url.searchParams.get('page');
+    const pageIndex = url.searchParams.get('pageIndex');
+    calls.push(pageIndex);
     const body =
-      page === '1'
-        ? `var apidata={ content:"<table><tbody><tr><td>2026-05-15</td><td>5.0560</td><td>5.0560</td><td>-2.41%</td></tr></tbody></table>",records:2,pages:2,curpage:1};`
-        : `var apidata={ content:"<table><tbody><tr><td>2024-04-19</td><td>2.2380</td><td>2.2380</td><td></td></tr></tbody></table>",records:2,pages:2,curpage:2};`;
+      pageIndex === '1'
+        ? JSON.stringify({
+            Data: {
+              LSJZList: [{ FSRQ: '2026-05-15', DWJZ: '5.0560', JZZZL: '-2.41' }],
+              TotalCount: 2,
+              PageSize: 1,
+            },
+            ErrCode: 0,
+          })
+        : JSON.stringify({
+            Data: {
+              LSJZList: [{ FSRQ: '2024-04-19', DWJZ: '2.2380', JZZZL: '' }],
+              TotalCount: 2,
+              PageSize: 1,
+            },
+            ErrCode: 0,
+          });
     return {
       ok: true,
       status: 200,
