@@ -358,6 +358,8 @@
           </div>
           <div class="chart-actions">
             <button id="ma60Toggle" class="range-btn" type="button" aria-pressed="false">60 日均线</button>
+            <button id="ma120Toggle" class="range-btn" type="button" aria-pressed="false">120 日均线</button>
+            <button id="ma250Toggle" class="range-btn" type="button" aria-pressed="false">250 日均线</button>
             <div id="rangeGroup" class="range-group" aria-label="显示范围"></div>
           </div>
         </div>
@@ -375,7 +377,7 @@
         <div class="section-head">
           <div>
             <h2>历史明细</h2>
-            <p>按日期升序展示原始净值、日涨幅和 30/60 日均线。</p>
+            <p>按日期升序展示原始净值、日涨幅和 30/60/120/250 日均线。</p>
           </div>
         </div>
         <div class="table-wrap">
@@ -387,6 +389,8 @@
                 <th>日涨幅</th>
                 <th>30 日均线</th>
                 <th>60 日均线</th>
+                <th>120 日均线</th>
+                <th>250 日均线</th>
               </tr>
             </thead>
             <tbody id="tableBody"></tbody>

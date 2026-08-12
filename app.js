@@ -14,14 +14,18 @@
         change: Number(record.change),
         ma30: null,
         ma60: null,
+        ma120: null,
+        ma250: null,
       }));
       const movingAverage = ChartHelpers.computeMovingAverageSeries(
         records.map((record) => record.nav),
-        [30, 60],
+        [30, 60, 120, 250],
       );
       records.forEach((record, index) => {
         record.ma30 = movingAverage[30][index];
         record.ma60 = movingAverage[60][index];
+        record.ma120 = movingAverage[120][index];
+        record.ma250 = movingAverage[250][index];
       });
 
       return {
@@ -40,6 +44,8 @@
   const chartWrap = document.getElementById('chartWrap');
   const rangeGroup = document.getElementById('rangeGroup');
   const ma60ToggleEl = document.getElementById('ma60Toggle');
+  const ma120ToggleEl = document.getElementById('ma120Toggle');
+  const ma250ToggleEl = document.getElementById('ma250Toggle');
   const titleEl = document.getElementById('fundTitle');
   const subtitleEl = document.getElementById('fundSubtitle');
   const fundPagerEl = document.getElementById('fundPager');
@@ -58,6 +64,8 @@
     hoverIndex: null,
     visibleMode: 'all',
     showMa60: false,
+    showMa120: false,
+    showMa250: false,
   };
 
   function activeFund() {
@@ -116,6 +124,14 @@
         min = Math.min(min, record.ma60);
         max = Math.max(max, record.ma60);
       }
+      if (record.ma120 != null) {
+        min = Math.min(min, record.ma120);
+        max = Math.max(max, record.ma120);
+      }
+      if (record.ma250 != null) {
+        min = Math.min(min, record.ma250);
+        max = Math.max(max, record.ma250);
+      }
     }
     return { min, max };
   }
@@ -142,12 +158,16 @@
     const { min, max } = minMax();
     const latestMa30 = latest.ma30;
     const latestMa60 = latest.ma60;
+    const latestMa120 = latest.ma120;
+    const latestMa250 = latest.ma250;
     const latestGap = latestMa30 == null ? null : latest.nav - latestMa30;
     const items = [
       { label: '最新日期', value: formatDateLabel(latest.date), note: '最新一个交易日' },
       { label: '最新净值', value: formatNav(latest.nav), note: '收盘后净值' },
       { label: '30 日均线', value: formatMa(latestMa30), note: '默认显示' },
       { label: '60 日均线', value: formatMa(latestMa60), note: '可切换显示' },
+      { label: '120 日均线', value: formatMa(latestMa120), note: '半年线' },
+      { label: '250 日均线', value: formatMa(latestMa250), note: '年线' },
       { label: '偏离 30 日', value: latestGap == null ? '—' : formatSignedNumber(latestGap), note: '净值 - 30 日均线' },
       { label: '区间高低', value: `${formatNav(max)} / ${formatNav(min)}`, note: '全样本范围' },
       { label: '数据点数', value: String(records.length), note: 'OCR 识别整理' },
@@ -237,6 +257,14 @@
     ma60ToggleEl.setAttribute('aria-pressed', String(state.showMa60));
   }
 
+  function updateMa120Toggle() {
+    ma120ToggleEl.setAttribute('aria-pressed', String(state.showMa120));
+  }
+
+  function updateMa250Toggle() {
+    ma250ToggleEl.setAttribute('aria-pressed', String(state.showMa250));
+  }
+
   function buildDetails(record) {
     if (!record) {
       detailGridEl.innerHTML = '';
@@ -254,6 +282,8 @@
       },
       { label: '30 日均线', value: formatMa(record.ma30) },
       { label: '60 日均线', value: formatMa(record.ma60) },
+      { label: '120 日均线', value: formatMa(record.ma120) },
+      { label: '250 日均线', value: formatMa(record.ma250) },
       {
         label: '偏离 30 日',
         value: gap == null ? '—' : formatSignedNumber(gap),
@@ -287,6 +317,8 @@
         <td class="num ${changeClass(record.change)}">${formatChange(record.change)}</td>
         <td class="num">${formatMa(record.ma30)}</td>
         <td class="num">${formatMa(record.ma60)}</td>
+        <td class="num">${formatMa(record.ma120)}</td>
+        <td class="num">${formatMa(record.ma250)}</td>
       `;
       tr.addEventListener('click', () => {
         state.selectedIndex = record.index;
@@ -349,6 +381,8 @@
       <div class="tooltip-row"><span>日涨幅</span><strong class="${changeClass(record.change)}">${formatChange(record.change)}</strong></div>
       <div class="tooltip-row"><span>30 日均线</span><strong>${formatMa(record.ma30)}</strong></div>
       <div class="tooltip-row"><span>60 日均线</span><strong>${formatMa(record.ma60)}</strong></div>
+      <div class="tooltip-row"><span>120 日均线</span><strong>${formatMa(record.ma120)}</strong></div>
+      <div class="tooltip-row"><span>250 日均线</span><strong>${formatMa(record.ma250)}</strong></div>
       <div class="tooltip-row"><span>偏离 30 日</span><strong class="${gap == null ? 'flat' : gap >= 0 ? 'up' : 'down'}">${gap == null ? '—' : formatSignedNumber(gap)}</strong></div>
     `;
 
@@ -400,7 +434,12 @@
     const visibleRecords = records.slice(visible.start, visible.end + 1);
     const rawValues = visibleRecords.map((record) => record.nav);
     const maValues = visibleRecords
-      .flatMap((record) => [record.ma30, state.showMa60 ? record.ma60 : null])
+      .flatMap((record) => [
+        record.ma30,
+        state.showMa60 ? record.ma60 : null,
+        state.showMa120 ? record.ma120 : null,
+        state.showMa250 ? record.ma250 : null,
+      ])
       .filter((value) => value != null);
     const combined = rawValues.concat(maValues);
     const min = Math.min(...combined);
@@ -478,10 +517,18 @@
     const rawPathColor = '#2563eb';
     const ma30PathColor = '#d97706';
     const ma60PathColor = '#0f766e';
+    const ma120PathColor = '#7c3aed';
+    const ma250PathColor = '#e11d48';
     drawSeries(ctx, layout, records.map((record) => record.nav), visible, rawPathColor, 2.2);
     drawSeries(ctx, layout, records.map((record) => record.ma30), visible, ma30PathColor, 2.6);
     if (state.showMa60) {
       drawSeries(ctx, layout, records.map((record) => record.ma60), visible, ma60PathColor, 2.6);
+    }
+    if (state.showMa120) {
+      drawSeries(ctx, layout, records.map((record) => record.ma120), visible, ma120PathColor, 2.6);
+    }
+    if (state.showMa250) {
+      drawSeries(ctx, layout, records.map((record) => record.ma250), visible, ma250PathColor, 2.6);
     }
 
     const active = getActiveIndex();
@@ -499,6 +546,8 @@
         { value: activeRecord.nav, color: rawPathColor },
         { value: activeRecord.ma30, color: ma30PathColor },
         { value: state.showMa60 ? activeRecord.ma60 : null, color: ma60PathColor },
+        { value: state.showMa120 ? activeRecord.ma120 : null, color: ma120PathColor },
+        { value: state.showMa250 ? activeRecord.ma250 : null, color: ma250PathColor },
       ];
       for (const point of points) {
         if (point.value == null) continue;
@@ -577,6 +626,18 @@
     renderChart();
   });
 
+  ma120ToggleEl.addEventListener('click', () => {
+    state.showMa120 = !state.showMa120;
+    updateMa120Toggle();
+    renderChart();
+  });
+
+  ma250ToggleEl.addEventListener('click', () => {
+    state.showMa250 = !state.showMa250;
+    updateMa250Toggle();
+    renderChart();
+  });
+
   window.addEventListener('resize', () => {
     renderChart();
   });
@@ -587,6 +648,8 @@
   buildSummary();
   buildRangeButtons();
   updateMa60Toggle();
+  updateMa120Toggle();
+  updateMa250Toggle();
   buildTable();
   render();
 })();
