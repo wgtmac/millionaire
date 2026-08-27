@@ -122,18 +122,16 @@
         font-size: 12px;
       }
 
-      .range-group {
-        display: inline-flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
+      .chart-toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 10px;
       }
 
-      .chart-actions {
+      .button-row {
         display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 8px;
+        gap: 6px;
         flex-wrap: wrap;
       }
 
@@ -173,6 +171,44 @@
         display: block;
         width: 100%;
         height: 440px;
+        touch-action: pan-y;
+        user-select: none;
+      }
+
+      .chart-scrollbar {
+        border: 1px solid var(--line);
+        border-top: 0;
+        background: #fff;
+        padding: 10px 14px;
+      }
+
+      .chart-scrollbar.is-hidden {
+        display: none;
+      }
+
+      .chart-scrollbar-track {
+        position: relative;
+        height: 8px;
+        border-radius: 4px;
+        background: #eef1f6;
+        cursor: pointer;
+      }
+
+      .chart-scrollbar-thumb {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        min-width: 24px;
+        border-radius: 4px;
+        background: var(--blue);
+        opacity: 0.55;
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .chart-scrollbar-thumb:active {
+        cursor: grabbing;
+        opacity: 0.85;
       }
 
       .tooltip {
@@ -322,11 +358,6 @@
           flex-direction: column;
         }
 
-        .range-group,
-        .chart-actions {
-          justify-content: flex-start;
-        }
-
         canvas {
           height: 360px;
         }
@@ -354,18 +385,21 @@
         <div class="section-head">
           <div>
             <h2>净值与均线</h2>
-            <p>悬停查看明细，点击任意点位或表格行可锁定关注日期。</p>
+            <p>悬停查看明细，点击任意点位或表格行可锁定关注日期；按住拖拽、触屏滑动或拖动下方滚动条可查看更早的历史数据。</p>
           </div>
-          <div class="chart-actions">
-            <button id="ma60Toggle" class="range-btn" type="button" aria-pressed="false">60 日均线</button>
-            <button id="ma120Toggle" class="range-btn" type="button" aria-pressed="false">120 日均线</button>
-            <button id="ma250Toggle" class="range-btn" type="button" aria-pressed="false">250 日均线</button>
-            <div id="rangeGroup" class="range-group" aria-label="显示范围"></div>
-          </div>
+        </div>
+        <div class="chart-toolbar">
+          <div id="maGroup" class="button-row" aria-label="均线显示"></div>
+          <div id="rangeGroup" class="button-row" aria-label="显示范围"></div>
         </div>
         <div class="chart-wrap" id="chartWrap">
           <canvas id="chart"></canvas>
           <div id="tooltip" class="tooltip hidden"></div>
+        </div>
+        <div id="chartScrollbar" class="chart-scrollbar">
+          <div id="chartScrollbarTrack" class="chart-scrollbar-track">
+            <div id="chartScrollbarThumb" class="chart-scrollbar-thumb"></div>
+          </div>
         </div>
       </section>
 

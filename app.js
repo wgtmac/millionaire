@@ -42,20 +42,28 @@
   const tooltipEl = document.getElementById('tooltip');
   const canvas = document.getElementById('chart');
   const chartWrap = document.getElementById('chartWrap');
+  const maGroupEl = document.getElementById('maGroup');
   const rangeGroup = document.getElementById('rangeGroup');
-  const ma60ToggleEl = document.getElementById('ma60Toggle');
-  const ma120ToggleEl = document.getElementById('ma120Toggle');
-  const ma250ToggleEl = document.getElementById('ma250Toggle');
+  const scrollbarEl = document.getElementById('chartScrollbar');
+  const scrollbarTrackEl = document.getElementById('chartScrollbarTrack');
+  const scrollbarThumbEl = document.getElementById('chartScrollbarThumb');
   const titleEl = document.getElementById('fundTitle');
   const subtitleEl = document.getElementById('fundSubtitle');
   const fundPagerEl = document.getElementById('fundPager');
 
   const rangeModes = [
-    { id: 'all', label: '全部', count: null },
-    { id: '180', label: '180 日', count: 180 },
-    { id: '120', label: '120 日', count: 120 },
-    { id: '60', label: '60 日', count: 60 },
     { id: '30', label: '30 日', count: 30 },
+    { id: '60', label: '60 日', count: 60 },
+    { id: '120', label: '120 日', count: 120 },
+    { id: '180', label: '180 日', count: 180 },
+    { id: 'all', label: '全部', count: null },
+  ];
+
+  const maLines = [
+    { id: 'ma30', field: 'ma30', label: '30 日均线', stateKey: 'showMa30' },
+    { id: 'ma60', field: 'ma60', label: '60 日均线', stateKey: 'showMa60' },
+    { id: 'ma120', field: 'ma120', label: '120 日均线', stateKey: 'showMa120' },
+    { id: 'ma250', field: 'ma250', label: '250 日均线', stateKey: 'showMa250' },
   ];
 
   const state = {
@@ -63,10 +71,18 @@
     selectedIndex: 0,
     hoverIndex: null,
     visibleMode: 'all',
+    viewStart: 0,
+    showMa30: true,
     showMa60: false,
     showMa120: false,
     showMa250: false,
   };
+
+  // Updated by renderChart(); drag/wheel handlers convert pixel deltas to record-index deltas with it.
+  let lastXStep = 1;
+  let dragState = null;
+  let scrollbarDrag = null;
+  const DRAG_THRESHOLD = 4;
 
   function activeFund() {
     return funds[state.activeFundIndex] || funds[0] || defaultFund;
@@ -74,6 +90,23 @@
 
   function currentRecords() {
     return activeFund().records || [];
+  }
+
+  function currentRangeMode() {
+    return rangeModes.find((item) => item.id === state.visibleMode) || rangeModes[rangeModes.length - 1];
+  }
+
+  function currentWindowSize() {
+    return ChartHelpers.resolveWindowSize(currentRecords().length, currentRangeMode().count);
+  }
+
+  function setViewStart(nextStart) {
+    state.viewStart = ChartHelpers.clampViewStart(currentRecords().length, currentWindowSize(), nextStart);
+  }
+
+  function resetViewToLatest() {
+    const total = currentRecords().length;
+    setViewStart(total - currentWindowSize());
   }
 
   function formatDateLabel(date) {
@@ -138,14 +171,13 @@
 
   function visibleRange() {
     const records = currentRecords();
-    const mode = rangeModes.find((item) => item.id === state.visibleMode) || rangeModes[0];
     if (records.length === 0) {
       return { start: 0, end: 0 };
     }
-    if (!mode.count || mode.count >= records.length) {
-      return { start: 0, end: records.length - 1 };
-    }
-    return { start: Math.max(0, records.length - mode.count), end: records.length - 1 };
+    const windowSize = currentWindowSize();
+    setViewStart(state.viewStart);
+    const end = Math.min(records.length - 1, state.viewStart + windowSize - 1);
+    return { start: state.viewStart, end };
   }
 
   function buildSummary() {
@@ -212,6 +244,7 @@
         state.activeFundIndex = index;
         state.selectedIndex = currentRecords().length - 1;
         state.hoverIndex = null;
+        resetViewToLatest();
         updateHeader();
         updateFundPager();
         buildSummary();
@@ -240,6 +273,7 @@
       button.addEventListener('click', () => {
         state.visibleMode = mode.id;
         updateRangeButtons();
+        resetViewToLatest();
         render();
       });
       rangeGroup.appendChild(button);
@@ -253,16 +287,21 @@
     }
   }
 
-  function updateMa60Toggle() {
-    ma60ToggleEl.setAttribute('aria-pressed', String(state.showMa60));
-  }
-
-  function updateMa120Toggle() {
-    ma120ToggleEl.setAttribute('aria-pressed', String(state.showMa120));
-  }
-
-  function updateMa250Toggle() {
-    ma250ToggleEl.setAttribute('aria-pressed', String(state.showMa250));
+  function buildMaButtons() {
+    maGroupEl.innerHTML = '';
+    for (const line of maLines) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'range-btn';
+      button.textContent = line.label;
+      button.setAttribute('aria-pressed', String(state[line.stateKey]));
+      button.addEventListener('click', () => {
+        state[line.stateKey] = !state[line.stateKey];
+        button.setAttribute('aria-pressed', String(state[line.stateKey]));
+        renderChart();
+      });
+      maGroupEl.appendChild(button);
+    }
   }
 
   function buildDetails(record) {
@@ -435,7 +474,7 @@
     const rawValues = visibleRecords.map((record) => record.nav);
     const maValues = visibleRecords
       .flatMap((record) => [
-        record.ma30,
+        state.showMa30 ? record.ma30 : null,
         state.showMa60 ? record.ma60 : null,
         state.showMa120 ? record.ma120 : null,
         state.showMa250 ? record.ma250 : null,
@@ -449,6 +488,7 @@
     const yMax = max + padding;
     const xCount = Math.max(visible.end - visible.start, 1);
     const xStep = layout.plotWidth / xCount;
+    lastXStep = xStep;
 
     layout.x = (index) => layout.left + (index - visible.start) * xStep;
     layout.y = (value) => {
@@ -469,6 +509,7 @@
       ctx.textBaseline = 'middle';
       ctx.fillText('暂无数据', width / 2, height / 2);
       hideTooltip();
+      updateScrollbar();
       return;
     }
 
@@ -520,7 +561,9 @@
     const ma120PathColor = '#7c3aed';
     const ma250PathColor = '#e11d48';
     drawSeries(ctx, layout, records.map((record) => record.nav), visible, rawPathColor, 2.2);
-    drawSeries(ctx, layout, records.map((record) => record.ma30), visible, ma30PathColor, 2.6);
+    if (state.showMa30) {
+      drawSeries(ctx, layout, records.map((record) => record.ma30), visible, ma30PathColor, 2.6);
+    }
     if (state.showMa60) {
       drawSeries(ctx, layout, records.map((record) => record.ma60), visible, ma60PathColor, 2.6);
     }
@@ -544,7 +587,7 @@
 
       const points = [
         { value: activeRecord.nav, color: rawPathColor },
-        { value: activeRecord.ma30, color: ma30PathColor },
+        { value: state.showMa30 ? activeRecord.ma30 : null, color: ma30PathColor },
         { value: state.showMa60 ? activeRecord.ma60 : null, color: ma60PathColor },
         { value: state.showMa120 ? activeRecord.ma120 : null, color: ma120PathColor },
         { value: state.showMa250 ? activeRecord.ma250 : null, color: ma250PathColor },
@@ -573,6 +616,8 @@
     } else {
       hideTooltip();
     }
+
+    updateScrollbar();
   }
 
   function renderDetailPanel() {
@@ -603,38 +648,137 @@
     return Math.max(start, Math.min(end, index));
   }
 
-  canvas.addEventListener('mousemove', (event) => {
-    state.hoverIndex = pointFromEvent(event);
+  function updateScrollbar() {
+    const total = currentRecords().length;
+    const windowSize = currentWindowSize();
+    if (total === 0 || windowSize >= total) {
+      scrollbarEl.classList.add('is-hidden');
+      return;
+    }
+    scrollbarEl.classList.remove('is-hidden');
+    const trackWidth = scrollbarTrackEl.clientWidth;
+    const thumbWidth = Math.max(24, trackWidth * (windowSize / total));
+    const maxStart = total - windowSize;
+    const maxLeft = Math.max(0, trackWidth - thumbWidth);
+    const left = maxStart > 0 ? (state.viewStart / maxStart) * maxLeft : 0;
+    scrollbarThumbEl.style.width = `${thumbWidth}px`;
+    scrollbarThumbEl.style.left = `${left}px`;
+  }
+
+  function panBy(indexDelta) {
+    if (!Number.isFinite(indexDelta) || indexDelta === 0) return;
+    setViewStart(state.viewStart + indexDelta);
+    renderChart();
+  }
+
+  canvas.addEventListener('pointerdown', (event) => {
+    if (currentRecords().length === 0) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    dragState = {
+      startX: event.clientX,
+      startViewStart: state.viewStart,
+      moved: false,
+      xStep: lastXStep || 1,
+    };
+    canvas.setPointerCapture(event.pointerId);
+  });
+
+  canvas.addEventListener('pointermove', (event) => {
+    if (dragState) {
+      const deltaX = event.clientX - dragState.startX;
+      if (!dragState.moved && Math.abs(deltaX) > DRAG_THRESHOLD) {
+        dragState.moved = true;
+        state.hoverIndex = null;
+        hideTooltip();
+      }
+      if (dragState.moved) {
+        setViewStart(dragState.startViewStart - deltaX / dragState.xStep);
+        renderChart();
+      }
+      return;
+    }
+    if (event.pointerType === 'mouse') {
+      state.hoverIndex = pointFromEvent(event);
+      renderChart();
+    }
+  });
+
+  canvas.addEventListener('pointerup', (event) => {
+    if (!dragState) return;
+    if (!dragState.moved) {
+      state.selectedIndex = pointFromEvent(event);
+      syncSelection();
+      renderDetailPanel();
+      renderChart();
+    }
+    dragState = null;
+    canvas.releasePointerCapture(event.pointerId);
+  });
+
+  canvas.addEventListener('pointercancel', () => {
+    dragState = null;
+  });
+
+  canvas.addEventListener('pointerleave', (event) => {
+    if (!dragState && event.pointerType === 'mouse') {
+      state.hoverIndex = null;
+      renderChart();
+    }
+  });
+
+  canvas.addEventListener(
+    'wheel',
+    (event) => {
+      const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.shiftKey;
+      if (!horizontal) return;
+      event.preventDefault();
+      const delta = event.shiftKey && Math.abs(event.deltaX) < Math.abs(event.deltaY) ? event.deltaY : event.deltaX;
+      panBy(delta / (lastXStep || 1));
+    },
+    { passive: false },
+  );
+
+  scrollbarThumbEl.addEventListener('pointerdown', (event) => {
+    event.stopPropagation();
+    scrollbarDrag = {
+      startX: event.clientX,
+      startViewStart: state.viewStart,
+      maxStart: Math.max(0, currentRecords().length - currentWindowSize()),
+      trackWidth: scrollbarTrackEl.clientWidth,
+      thumbWidth: scrollbarThumbEl.getBoundingClientRect().width,
+    };
+    scrollbarThumbEl.setPointerCapture(event.pointerId);
+  });
+
+  scrollbarThumbEl.addEventListener('pointermove', (event) => {
+    if (!scrollbarDrag) return;
+    const deltaX = event.clientX - scrollbarDrag.startX;
+    const maxLeft = Math.max(1, scrollbarDrag.trackWidth - scrollbarDrag.thumbWidth);
+    const deltaStart = (deltaX / maxLeft) * scrollbarDrag.maxStart;
+    setViewStart(scrollbarDrag.startViewStart + deltaStart);
     renderChart();
   });
 
-  canvas.addEventListener('mouseleave', () => {
-    state.hoverIndex = null;
-    renderChart();
+  scrollbarThumbEl.addEventListener('pointerup', (event) => {
+    scrollbarDrag = null;
+    scrollbarThumbEl.releasePointerCapture(event.pointerId);
   });
 
-  canvas.addEventListener('click', (event) => {
-    state.selectedIndex = pointFromEvent(event);
-    syncSelection();
-    renderDetailPanel();
-    renderChart();
+  scrollbarThumbEl.addEventListener('pointercancel', () => {
+    scrollbarDrag = null;
   });
 
-  ma60ToggleEl.addEventListener('click', () => {
-    state.showMa60 = !state.showMa60;
-    updateMa60Toggle();
-    renderChart();
-  });
-
-  ma120ToggleEl.addEventListener('click', () => {
-    state.showMa120 = !state.showMa120;
-    updateMa120Toggle();
-    renderChart();
-  });
-
-  ma250ToggleEl.addEventListener('click', () => {
-    state.showMa250 = !state.showMa250;
-    updateMa250Toggle();
+  scrollbarTrackEl.addEventListener('pointerdown', (event) => {
+    if (event.target === scrollbarThumbEl) return;
+    const total = currentRecords().length;
+    const windowSize = currentWindowSize();
+    const maxStart = Math.max(0, total - windowSize);
+    const rect = scrollbarTrackEl.getBoundingClientRect();
+    const thumbWidth = scrollbarThumbEl.getBoundingClientRect().width;
+    const maxLeft = Math.max(1, rect.width - thumbWidth);
+    const clickX = event.clientX - rect.left - thumbWidth / 2;
+    const ratio = Math.max(0, Math.min(1, clickX / maxLeft));
+    setViewStart(Math.round(ratio * maxStart));
     renderChart();
   });
 
@@ -646,10 +790,9 @@
   updateHeader();
   buildFundPager();
   buildSummary();
+  buildMaButtons();
   buildRangeButtons();
-  updateMa60Toggle();
-  updateMa120Toggle();
-  updateMa250Toggle();
   buildTable();
+  resetViewToLatest();
   render();
 })();
